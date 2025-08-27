@@ -80,6 +80,5 @@ airbyte-custom-connector-guide/
 ## Note
 
 This is a simplified example for educational purposes. In a real-world scenario:
-- The Faros destination would be more complex with actual API integration
-- Converters would typically be added to the main Faros destination repository
+- The source would be more complex with actual API integration
 - Error handling and logging would be more comprehensive
