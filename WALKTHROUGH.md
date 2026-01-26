@@ -476,6 +476,10 @@ Converters are automatically discovered by the Faros destination based on the st
 
 The destination parses the stream name and finds the matching converter class (`Users`) in the `jsonplaceholder` directory.
 
+### Type Validation with Canonical Models
+
+The `airbyte-faros-destination` package has `@faros-ai/canonical-models` as an optional dependency. If you have access to this package, it will be installed automatically and provide type validation for the destination models written by converters. This helps catch schema mismatches during development.
+
 ## Part 3: Testing Everything
 
 ### Building the Project
