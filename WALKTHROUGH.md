@@ -600,42 +600,82 @@ docker run --rm test/airbyte-faros-destination spec
 
 ### Using airbyte-local-cli
 
-The easiest way to run a full sync is with [airbyte-local-cli](https://github.com/faros-ai/airbyte-local-cli):
+The easiest way to run a full sync is with [airbyte-local-cli](https://github.com/faros-ai/airbyte-local-cli). Download the binary for your platform from the [releases page](https://github.com/faros-ai/airbyte-local-cli/releases).
 
-```bash
-# Run source only (outputs records to stdout)
-bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main/airbyte-local.sh) \
-  --src 'test/airbyte-jsonplaceholder-source' \
-  --no-src-pull \
-  --src-only
+The CLI uses config files to specify source and destination settings.
 
-# Run source + destination (dry run mode with state for incremental syncs)
-bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main/airbyte-local.sh) \
-  --src 'test/airbyte-jsonplaceholder-source' \
-  --no-src-pull \
-  --dst 'test/airbyte-faros-destination' \
-  --dst.dry_run true \
-  --no-dst-pull \
-  --dst-stream-prefix "mytestsource__jsonplaceholder__" \
-  --state ./state.json
+**Source only (`config-src-only.json`):**
+```json
+{
+  "src": {
+    "image": "test/airbyte-jsonplaceholder-source",
+    "config": {}
+  }
+}
 ```
 
-The `--dst-stream-prefix` flag adds the required prefix to stream names so the destination can find the correct converters. The `--state` flag specifies a JSON file to read/write sync state, enabling incremental syncs across runs.
+```bash
+./airbyte-local \
+  -c config-src-only.json \
+  --src-only \
+  --no-src-pull
+```
+
+**Source + destination dry run (`config-dry-run.json`):**
+```json
+{
+  "src": {
+    "image": "test/airbyte-jsonplaceholder-source",
+    "config": {}
+  },
+  "dst": {
+    "image": "test/airbyte-faros-destination",
+    "config": {
+      "dry_run": true
+    }
+  }
+}
+```
+
+```bash
+./airbyte-local \
+  -c config-dry-run.json \
+  --no-src-pull \
+  --no-dst-pull \
+  --dst-stream-prefix "mytestsource__jsonplaceholder__"
+```
+
+The `--no-src-pull` and `--no-dst-pull` flags use local Docker images instead of pulling from registry. Running a sync writes a `state.json` file to enable incremental syncs on subsequent runs.
 
 ### Writing to Faros
 
-To actually write data to Faros, remove `--dst.dry_run` and add your Faros API credentials:
+To write data to Faros, create a config with your API credentials (`config-faros.json`):
 
+```json
+{
+  "src": {
+    "image": "test/airbyte-jsonplaceholder-source",
+    "config": {}
+  },
+  "dst": {
+    "image": "test/airbyte-faros-destination",
+    "config": {
+      "edition_configs": {
+        "api_key": "YOUR_FAROS_API_KEY",
+        "graph": "default"
+      }
+    }
+  }
+}
+```
+
+Then run:
 ```bash
-bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main/airbyte-local.sh) \
-  --src 'test/airbyte-jsonplaceholder-source' \
+./airbyte-local \
+  -c config-faros.json \
   --no-src-pull \
-  --dst 'test/airbyte-faros-destination' \
   --no-dst-pull \
-  --dst-stream-prefix "mytestsource__jsonplaceholder__" \
-  --dst.edition_configs.api_key "YOUR_FAROS_API_KEY" \
-  --dst.edition_configs.graph "default" \
-  --state ./state.json
+  --dst-stream-prefix "mytestsource__jsonplaceholder__"
 ```
 
 ## Key Concepts Explained
