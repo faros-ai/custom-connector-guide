@@ -8,6 +8,13 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 - **sources/jsonplaceholder-source/** - JSONPlaceholder source connector
 - **destinations/airbyte-faros-destination/** - Faros destination with JSONPlaceholder converters
 
+## Requirements
+
+- Node.js 22+
+- npm
+- jq (for stream prefixing in end-to-end tests)
+- Docker (optional, for containerization)
+
 ## Quick Start
 
 1. Read the [WALKTHROUGH.md](./WALKTHROUGH.md) guide
@@ -21,7 +28,15 @@ This directory contains a complete, self-contained walkthrough guide for buildin
    export SRC_PATH=sources/jsonplaceholder-source
    $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json
    ```
-4. Test source + destination end-to-end:
+4. Test the destination:
+   ```bash
+   export DST_PATH=destinations/airbyte-faros-destination
+   cat << 'EOF' | $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
+   {"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__users","data":{"id":1,"name":"Test User","email":"test@example.com"},"emitted_at":1234567890}}
+   {"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__todos","data":{"userId":1,"id":1,"title":"Test Todo","completed":false},"emitted_at":1234567891}}
+   EOF
+   ```
+5. Test source + destination end-to-end:
    ```bash
    export SRC_PATH=sources/jsonplaceholder-source
    export DST_PATH=destinations/airbyte-faros-destination
@@ -41,36 +56,29 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 
 ## Project Structure
 
-This guide contains a self-contained example with all necessary components:
-
 ```
 custom-connector-guide/
-├── sources/                             # Source connectors
-│   └── jsonplaceholder-source/          # Example source connector
+├── sources/
+│   └── jsonplaceholder-source/
 │       ├── src/                         # Source code
-│       │   ├── index.ts                 # Main source class
-│       │   └── streams/                 # Stream implementations
-│       │       ├── users.ts
-│       │       └── todos.ts
-│       └── resources/                   # Configuration and schemas
-│           ├── spec.json
-│           └── schemas/
-│               ├── users.json
-│               └── todos.json
+│       ├── resources/                   # Spec and schemas
+│       ├── test/                        # Jest tests
+│       ├── test_files/                  # Manual test configs
+│       └── bin/main                     # Entry point
 │
-├── destinations/                        # Destination connectors
-│   └── airbyte-faros-destination/       # Custom Faros destination
-│       ├── src/
-│       │   ├── index.ts                 # Main entry point
-│       │   └── converters/
-│       │       └── jsonplaceholder/     # JSONPlaceholder converters
-│       │           ├── users.ts         # Users converter
-│       │           └── todos.ts         # Todos converter
-│       ├── bin/main                     # Executable entry point
-│       └── package.json
+├── destinations/
+│   └── airbyte-faros-destination/
+│       ├── src/converters/jsonplaceholder/  # Converters
+│       ├── test/                        # Jest tests
+│       ├── test_files/                  # Manual test configs
+│       └── bin/main                     # Entry point
 │
+├── docker/                              # Docker entrypoint
+├── Dockerfile                           # Multi-stage build
+├── turbo.json                           # Turborepo config
+├── package.json                         # Root package
 ├── WALKTHROUGH.md                       # Detailed guide
-└── README.md                           # This file
+└── README.md
 ```
 
 ## Key Concepts
@@ -79,13 +87,6 @@ custom-connector-guide/
 - **Streams**: Different types of data from the source (users, todos)
 - **Converters**: Transform source data to Faros canonical models
 - **Faros Schema**: Standardized data models (tms_User, tms_Task, etc.)
-
-## Requirements
-
-- Node.js 22+
-- npm
-- Basic TypeScript knowledge
-- Docker (optional, for containerization)
 
 ## Note
 
