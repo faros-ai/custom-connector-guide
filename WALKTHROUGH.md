@@ -622,6 +622,22 @@ bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main
 
 The `--dst-stream-prefix` flag adds the required prefix to stream names so the destination can find the correct converters. The `--state` flag specifies a JSON file to read/write sync state, enabling incremental syncs across runs.
 
+### Writing to Faros
+
+To actually write data to Faros, remove `--dst.dry_run` and add your Faros API credentials:
+
+```bash
+bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main/airbyte-local.sh) \
+  --src 'test/airbyte-jsonplaceholder-source' \
+  --no-src-pull \
+  --dst 'test/airbyte-faros-destination' \
+  --no-dst-pull \
+  --dst-stream-prefix "mytestsource__jsonplaceholder__" \
+  --dst.edition_configs.api_key "YOUR_FAROS_API_KEY" \
+  --dst.edition_configs.graph "default" \
+  --state ./state.json
+```
+
 ## Key Concepts Explained
 
 ### Streams
