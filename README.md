@@ -19,15 +19,15 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 3. Test the source:
    ```bash
    export SRC_PATH=sources/jsonplaceholder-source
-   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog
+   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json
    ```
 4. Test source + destination end-to-end:
    ```bash
    export SRC_PATH=sources/jsonplaceholder-source
    export DST_PATH=destinations/airbyte-faros-destination
-   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog | \
+   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json | \
    jq -c 'if .type == "RECORD" then .record.stream = "mytestsource__jsonplaceholder__\(.record.stream)" else . end' | \
-   $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog
+   $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
    ```
 
 ## What You'll Learn

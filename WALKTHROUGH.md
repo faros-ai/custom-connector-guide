@@ -332,14 +332,10 @@ npm install
 # Build the source
 npm run build
 
-# Create test configuration
-mkdir -p secrets
-echo '{"api_url": "https://jsonplaceholder.typicode.com"}' > secrets/config.json
-
-# Test the source
+# Test the source (using the provided test_files)
 bin/main spec
-bin/main check --config secrets/config.json
-bin/main discover --config secrets/config.json
+bin/main check --config test_files/config.json
+bin/main discover --config test_files/config.json
 ```
 
 ## Part 2: Creating the Converter
@@ -547,7 +543,7 @@ $SRC_PATH/bin/main check --config $SRC_PATH/test_files/config.json
 $SRC_PATH/bin/main discover --config $SRC_PATH/test_files/config.json
 
 # Read data from all streams
-$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog
+$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json
 ```
 
 ### Testing the Destination Converter
@@ -558,7 +554,7 @@ To test the converter in isolation, you can pipe sample records through it:
 export DST_PATH=destinations/airbyte-faros-destination
 
 # Create sample test records
-cat << 'EOF' | $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog
+cat << 'EOF' | $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
 {"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__users","data":{"id":1,"name":"Test User","email":"test@example.com"},"emitted_at":1234567890}}
 {"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__todos","data":{"userId":1,"id":1,"title":"Test Todo","completed":false},"emitted_at":1234567891}}
 EOF
@@ -574,9 +570,9 @@ Run a full pipeline from source to destination:
 export SRC_PATH=sources/jsonplaceholder-source
 export DST_PATH=destinations/airbyte-faros-destination
 
-$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog | \
+$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json | \
 jq -c 'if .type == "RECORD" then .record.stream = "mytestsource__jsonplaceholder__\(.record.stream)" else . end' | \
-$DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog
+$DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
 ```
 
 This command:
@@ -590,29 +586,51 @@ The destination runs in `dry_run` mode by default (configured in `test_files/con
 
 ### Building Docker Images
 
-For the source:
+Build the source and destination images:
 
 ```bash
-# From the root of the main repository
-docker build . --build-arg path=sources/jsonplaceholder-source --build-arg version=0.0.1 -t jsonplaceholder-source
-```
+# Build source connector
+docker build . --build-arg path=sources/jsonplaceholder-source --build-arg version=0.0.1 -t test/airbyte-jsonplaceholder-source
 
-For the destination (from within the guide directory):
-
-```bash
-docker build . --build-arg path=destinations/airbyte-faros-destination --build-arg version=0.0.1 -t airbyte-faros-destination
+# Build destination connector
+docker build . --build-arg path=destinations/airbyte-faros-destination --build-arg version=0.0.1 -t test/airbyte-faros-destination
 ```
 
 ### Running with Docker
 
-```bash
-# Test the source
-docker run --rm jsonplaceholder-source spec
-docker run --rm -v $(pwd)/secrets:/secrets jsonplaceholder-source check --config /secrets/config.json
+You can test the images directly:
 
-# Read data
-docker run --rm -v $(pwd)/secrets:/secrets -v $(pwd)/test_files:/test_files jsonplaceholder-source read --config /secrets/config.json --catalog /test_files/catalog.json
+```bash
+# Test the source spec
+docker run --rm test/airbyte-jsonplaceholder-source spec
+
+# Test the destination spec
+docker run --rm test/airbyte-faros-destination spec
 ```
+
+### Using airbyte-local-cli
+
+The easiest way to run a full sync is with [airbyte-local-cli](https://github.com/faros-ai/airbyte-local-cli):
+
+```bash
+# Run source only (outputs records to stdout)
+bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main/airbyte-local.sh) \
+  --src 'test/airbyte-jsonplaceholder-source' \
+  --no-src-pull \
+  --src-only
+
+# Run source + destination (dry run mode with state for incremental syncs)
+bash <(curl -s https://raw.githubusercontent.com/faros-ai/airbyte-local-cli/main/airbyte-local.sh) \
+  --src 'test/airbyte-jsonplaceholder-source' \
+  --no-src-pull \
+  --dst 'test/airbyte-faros-destination' \
+  --dst.dry_run true \
+  --no-dst-pull \
+  --dst-stream-prefix "mytestsource__jsonplaceholder__" \
+  --state ./state.json
+```
+
+The `--dst-stream-prefix` flag adds the required prefix to stream names so the destination can find the correct converters. The `--state` flag specifies a JSON file to read/write sync state, enabling incremental syncs across runs.
 
 ## Key Concepts Explained
 
