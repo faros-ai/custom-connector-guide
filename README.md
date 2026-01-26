@@ -5,7 +5,7 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 ## Contents
 
 - **WALKTHROUGH.md** - Comprehensive step-by-step guide
-- **jsonplaceholder-source/** - Example source connector implementation
+- **sources/jsonplaceholder-source/** - Example source connector implementation
 - **destinations/airbyte-faros-destination/** - Minimal Faros destination with JSONPlaceholder converters
 - **setup.sh** - Script to set up the development environment
 - **test-source.sh** - Script to test the JSONPlaceholder source
@@ -33,25 +33,25 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 This guide contains a self-contained example with all necessary components:
 
 ```
-airbyte-custom-connector-guide/
-├── jsonplaceholder-source/               # Example source connector
-│   ├── src/                             # Source code
-│   │   ├── index.ts                     # Main source class
-│   │   └── streams/                     # Stream implementations
-│   │       ├── users.ts
-│   │       └── todos.ts
-│   └── resources/                       # Configuration and schemas
-│       ├── spec.json
-│       └── schemas/
-│           ├── users.json
-│           └── todos.json
+custom-connector-guide/
+├── sources/                             # Source connectors
+│   └── jsonplaceholder-source/          # Example source connector
+│       ├── src/                         # Source code
+│       │   ├── index.ts                 # Main source class
+│       │   └── streams/                 # Stream implementations
+│       │       ├── users.ts
+│       │       └── todos.ts
+│       └── resources/                   # Configuration and schemas
+│           ├── spec.json
+│           └── schemas/
+│               ├── users.json
+│               └── todos.json
 │
-├── destinations/                        # Minimal Faros destination
-│   └── airbyte-faros-destination/
+├── destinations/                        # Destination connectors
+│   └── airbyte-faros-destination/       # Custom Faros destination
 │       ├── src/
-│       │   ├── index.ts                 # Simplified destination
+│       │   ├── index.ts                 # Main entry point
 │       │   └── converters/
-│       │       ├── converter.ts         # Base converter class
 │       │       └── jsonplaceholder/     # JSONPlaceholder converters
 │       │           ├── users.ts         # Users converter
 │       │           └── todos.ts         # Todos converter

@@ -39,10 +39,11 @@ JSONPlaceholder API → Airbyte Source → Airbyte Platform → Faros Destinatio
 This guide includes a self-contained example with all necessary components:
 
 ```
-airbyte-custom-connector-guide/
-├── jsonplaceholder-source/               # Example source connector
-├── destinations/                        # Self-contained Faros destination
-│   └── airbyte-faros-destination/       # Minimal destination implementation
+custom-connector-guide/
+├── sources/                             # Source connectors
+│   └── jsonplaceholder-source/          # Example source connector
+├── destinations/                        # Destination connectors
+│   └── airbyte-faros-destination/       # Custom Faros destination
 │       └── src/converters/
 │           └── jsonplaceholder/         # JSONPlaceholder converters
 │               ├── users.ts
@@ -67,8 +68,8 @@ airbyte-custom-connector-guide/
 
 ```bash
 # Copy the example source as a template
-cp -r sources/example-source airbyte-custom-connector-guide/jsonplaceholder-source
-cd airbyte-custom-connector-guide/jsonplaceholder-source
+cp -r sources/example-source custom-connector-guide/sources/jsonplaceholder-source
+cd custom-connector-guide/sources/jsonplaceholder-source
 ```
 
 ### Step 2: Update package.json
@@ -503,7 +504,7 @@ We've provided several helper scripts to make testing easier:
 ### Running the Setup
 
 ```bash
-cd airbyte-custom-connector-guide
+cd custom-connector-guide
 ./setup.sh
 ```
 
@@ -549,7 +550,7 @@ For the source:
 
 ```bash
 # From the root of the main repository
-docker build . --build-arg path=airbyte-custom-connector-guide/jsonplaceholder-source --build-arg version=0.0.1 -t jsonplaceholder-source
+docker build . --build-arg path=sources/jsonplaceholder-source --build-arg version=0.0.1 -t jsonplaceholder-source
 ```
 
 For the destination (from within the guide directory):

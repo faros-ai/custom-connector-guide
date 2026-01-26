@@ -11,7 +11,7 @@ TEMP_DIR=$(mktemp -d)
 echo "📁 Using temporary directory: $TEMP_DIR"
 
 # Change to source directory
-cd jsonplaceholder-source
+cd sources/jsonplaceholder-source
 
 # Create config
 mkdir -p secrets

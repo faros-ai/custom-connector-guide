@@ -25,7 +25,7 @@ echo "✅ npm version: $(npm --version)"
 
 # Install dependencies for the source
 echo "📦 Installing dependencies for JSONPlaceholder source..."
-cd jsonplaceholder-source
+cd sources/jsonplaceholder-source
 npm install
 
 # Build the source
@@ -33,7 +33,7 @@ echo "🔨 Building JSONPlaceholder source..."
 npm run build
 
 # Go back to guide directory
-cd ..
+cd ../..
 
 # Install dependencies for the destination
 echo "📦 Installing dependencies for example Faros destination..."
@@ -50,6 +50,6 @@ echo ""
 echo "✅ Setup complete! You can now start developing custom connectors."
 echo ""
 echo "Next steps:"
-echo "1. Test the source: cd jsonplaceholder-source && ../test-source.sh"
+echo "1. Test the source: cd sources/jsonplaceholder-source && ../../test-source.sh"
 echo "2. Test the converter: ./test-converter.sh"
 echo "3. Run end-to-end test: ./run-e2e.sh"

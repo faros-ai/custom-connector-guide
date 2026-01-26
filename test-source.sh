@@ -7,7 +7,7 @@ set -e
 echo "🧪 Testing JSONPlaceholder Source..."
 
 # Change to source directory
-cd jsonplaceholder-source
+cd sources/jsonplaceholder-source
 
 # Create secrets directory if it doesn't exist
 mkdir -p secrets

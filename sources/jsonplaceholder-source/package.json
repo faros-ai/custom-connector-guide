@@ -25,10 +25,12 @@
     "watch": "tsc -b -w src test"
   },
   "dependencies": {
-    "axios": "^1.8.4",
-    "faros-airbyte-cdk": "*",
-    "faros-js-client": "^0.7.6",
+    "axios": "^1.12.2",
+    "faros-airbyte-cdk": "^0.21.1",
     "verror": "^1.10.1"
+  },
+  "devDependencies": {
+    "faros-airbyte-testing-tools": "^0.21.1"
   },
   "jest": {
     "coverageDirectory": "out/coverage",
@@ -47,12 +49,5 @@
         }
       ]
     }
-  },
-  "devDependencies": {
-    "@types/commander": "^2.12.0",
-    "@types/node": "^24.1.0",
-    "@types/verror": "^1.10.11",
-    "commander": "^14.0.0",
-    "faros-airbyte-testing-tools": "*"
   }
 }

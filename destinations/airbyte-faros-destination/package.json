@@ -1,20 +1,16 @@
 {
   "name": "airbyte-faros-destination",
   "version": "0.0.1",
-  "description": "Minimal Faros Destination for JSONPlaceholder Example",
+  "description": "Custom Faros Destination for JSONPlaceholder Example",
   "main": "./lib",
   "scripts": {
     "build": "tsc -p src",
-    "clean": "rm -rf lib node_modules",
+    "clean": "rm -rf lib node_modules out",
+    "fix": "prettier --write 'src/**/*.ts' && npm run lint -- --fix",
+    "lint": "eslint 'src/**/*.ts'",
     "test": "echo 'No tests for example'"
   },
   "dependencies": {
-    "faros-airbyte-cdk": "^0.3.5",
-    "faros-js-client": "^0.7.6"
-  },
-  "devDependencies": {
-    "@types/node": "^20.19.9",
-    "commander": "^14.0.0",
-    "typescript": "^5.4.5"
+    "airbyte-faros-destination": "^0.21.1"
   }
 }
