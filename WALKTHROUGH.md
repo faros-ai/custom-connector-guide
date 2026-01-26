@@ -77,7 +77,7 @@ This section explains the structure of the JSONPlaceholder source connector loca
 
 ### The Configuration Spec
 
-The `resources/spec.json` file defines what configuration the source needs:
+The `resources/spec.json` file defines what configuration the source needs. This is displayed to users when setting up the connector:
 
 ```json
 {
@@ -99,6 +99,8 @@ The `resources/spec.json` file defines what configuration the source needs:
   }
 }
 ```
+
+The `connectionSpecification` uses JSON Schema to define each configuration field with its type, description, and default value.
 
 ### Data Schemas
 
@@ -160,6 +162,8 @@ The `resources/schemas/` directory contains JSON Schema definitions for each str
 }
 ```
 
+These schemas describe the structure of records emitted by each stream. Airbyte uses them to validate data and generate destination schemas.
+
 ### Configuration Interface
 
 The `src/config.ts` file defines the TypeScript interface for the source configuration:
@@ -171,6 +175,8 @@ export interface SourceConfig extends AirbyteConfig {
   readonly api_url?: string;
 }
 ```
+
+This interface mirrors the fields in `spec.json`, providing type safety when accessing configuration values in your code.
 
 ### Main Source Class
 
@@ -231,6 +237,11 @@ export class JSONPlaceholderSource extends AirbyteSourceBase<SourceConfig> {
   }
 }
 ```
+
+Key methods in the source class:
+- `spec()` returns the connector specification from `spec.json`
+- `checkConnection()` validates the API is reachable before syncing
+- `streams()` returns the list of available data streams
 
 ### Stream Implementations
 
@@ -313,6 +324,13 @@ export class Users extends AirbyteStreamBase {
 }
 ```
 
+Key stream methods:
+- `getJsonSchema()` returns the schema for this stream's records
+- `primaryKey` uniquely identifies each record
+- `cursorField` determines ordering for incremental syncs
+- `readRecords()` is the main method that fetches and yields data from the API
+- `getUpdatedState()` powers incremental syncs by tracking the last processed record; this state is persisted between runs so subsequent syncs only fetch new data
+
 The `src/streams/todos.ts` file follows the same pattern for todos.
 
 ### Building and Testing the Source
@@ -386,6 +404,12 @@ export class Users extends Converter {
   }
 }
 ```
+
+Key converter properties and methods:
+- `source` identifies where the data originated (used in foreign key references)
+- `destinationModels` declares which Faros models this converter writes to
+- `id()` returns a unique identifier for each record (used for deduplication)
+- `convert()` transforms the source record into one or more Faros destination records
 
 ### Todos Converter
 
@@ -461,11 +485,13 @@ export class Todos extends Converter {
         },
       });
     }
-    
+
     return results;
   }
 }
 ```
+
+This converter demonstrates creating multiple records from a single source record. The `tms_TaskAssignment` model creates a relationship between a task and a user by referencing them via their `uid` and `source` fields.
 
 ### Converter Discovery
 
