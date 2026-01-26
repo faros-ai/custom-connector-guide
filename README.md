@@ -5,19 +5,30 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 ## Contents
 
 - **WALKTHROUGH.md** - Comprehensive step-by-step guide
-- **sources/jsonplaceholder-source/** - Example source connector implementation
-- **destinations/airbyte-faros-destination/** - Minimal Faros destination with JSONPlaceholder converters
-- **setup.sh** - Script to set up the development environment
-- **test-source.sh** - Script to test the JSONPlaceholder source
-- **test-converter.sh** - Script to test the Faros destination converter
-- **run-e2e.sh** - Script to run end-to-end tests
+- **sources/jsonplaceholder-source/** - JSONPlaceholder source connector
+- **destinations/airbyte-faros-destination/** - Faros destination with JSONPlaceholder converters
 
 ## Quick Start
 
 1. Read the [WALKTHROUGH.md](./WALKTHROUGH.md) guide
-2. Run `./setup.sh` to set up the environment
-3. Follow the guide to understand how the connector works
-4. Use the test scripts to verify everything is working
+2. Install dependencies and build (required before running any commands):
+   ```bash
+   npm install
+   npm run build
+   ```
+3. Test the source:
+   ```bash
+   export SRC_PATH=sources/jsonplaceholder-source
+   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog
+   ```
+4. Test source + destination end-to-end:
+   ```bash
+   export SRC_PATH=sources/jsonplaceholder-source
+   export DST_PATH=destinations/airbyte-faros-destination
+   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog | \
+   jq -c 'if .type == "RECORD" then .record.stream = "mytestsource__jsonplaceholder__\(.record.stream)" else . end' | \
+   $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog
+   ```
 
 ## What You'll Learn
 
@@ -59,8 +70,7 @@ custom-connector-guide/
 │       └── package.json
 │
 ├── WALKTHROUGH.md                       # Detailed guide
-├── README.md                           # This file
-└── *.sh                                # Helper scripts
+└── README.md                           # This file
 ```
 
 ## Key Concepts

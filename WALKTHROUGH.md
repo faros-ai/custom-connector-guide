@@ -42,16 +42,16 @@ This guide includes a self-contained example with all necessary components:
 custom-connector-guide/
 ├── sources/                             # Source connectors
 │   └── jsonplaceholder-source/          # Example source connector
+│       └── test_files/                  # Test configuration files
 ├── destinations/                        # Destination connectors
 │   └── airbyte-faros-destination/       # Custom Faros destination
-│       └── src/converters/
-│           └── jsonplaceholder/         # JSONPlaceholder converters
-│               ├── users.ts
-│               └── todos.ts
-├── setup.sh                             # Setup script
-├── test-source.sh                       # Source testing script
-├── test-converter.sh                    # Converter testing script
-└── run-e2e.sh                          # End-to-end test script
+│       ├── src/converters/
+│       │   └── jsonplaceholder/         # JSONPlaceholder converters
+│       │       ├── users.ts
+│       │       └── todos.ts
+│       └── test_files/                  # Test configuration files
+├── WALKTHROUGH.md                       # This guide
+└── README.md                            # Quick start guide
 ```
 
 ## Prerequisites
@@ -492,55 +492,99 @@ The destination will automatically find and use the `Users` class in the `jsonpl
 
 ## Part 3: Testing Everything
 
-### Using the Helper Scripts
+### Building the Project
 
-We've provided several helper scripts to make testing easier:
-
-1. **setup.sh** - Sets up the entire development environment
-2. **test-source.sh** - Tests the JSONPlaceholder source
-3. **test-converter.sh** - Tests the Faros destination converter
-4. **run-e2e.sh** - Runs an end-to-end test
-
-### Running the Setup
+From the root of the project, install dependencies and build:
 
 ```bash
-cd custom-connector-guide
-./setup.sh
+npm install
+npm run build
+```
+
+This uses Turborepo to build all packages in the correct order.
+
+**Note:** The `bin/main` commands run the compiled JavaScript in the `lib/` directory, so you must run `npm run build` before testing. If you make changes to the source code, rebuild before testing again.
+
+### Running Automated Tests
+
+Both the source and destination have automated tests using Jest. Run all tests from the root:
+
+```bash
+npm test
+```
+
+Or run tests for a specific package:
+
+```bash
+# Source tests
+npm test --workspace=sources/jsonplaceholder-source
+
+# Destination converter tests (requires build first)
+npm run build --workspace=destinations/airbyte-faros-destination
+npm test --workspace=destinations/airbyte-faros-destination
+```
+
+The destination tests use `faros-airbyte-testing-tools` for snapshot testing of converter output. If you modify a converter, update snapshots with:
+
+```bash
+npm test --workspace=destinations/airbyte-faros-destination -- -u
 ```
 
 ### Testing the Source
 
-```bash
-./test-source.sh
-```
-
-This will:
-- Test the spec command
-- Check the connection
-- Discover available streams
-- Read some sample data
-
-### Testing the Converter
+Test individual source commands:
 
 ```bash
-./test-converter.sh
+export SRC_PATH=sources/jsonplaceholder-source
+
+# View the connector spec
+$SRC_PATH/bin/main spec
+
+# Check connection to the API
+$SRC_PATH/bin/main check --config $SRC_PATH/test_files/config.json
+
+# Discover available streams
+$SRC_PATH/bin/main discover --config $SRC_PATH/test_files/config.json
+
+# Read data from all streams
+$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog
 ```
 
-This will:
-- Create sample JSONPlaceholder records
-- Run them through the converter
-- Show how they map to Faros models
+### Testing the Destination Converter
+
+To test the converter in isolation, you can pipe sample records through it:
+
+```bash
+export DST_PATH=destinations/airbyte-faros-destination
+
+# Create sample test records
+cat << 'EOF' | $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog
+{"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__users","data":{"id":1,"name":"Test User","email":"test@example.com"},"emitted_at":1234567890}}
+{"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__todos","data":{"userId":1,"id":1,"title":"Test Todo","completed":false},"emitted_at":1234567891}}
+EOF
+```
+
+Note the stream naming convention: `origin__source__stream` (e.g., `mytestsource__jsonplaceholder__users`).
 
 ### End-to-End Test
 
+Run a full pipeline from source to destination:
+
 ```bash
-./run-e2e.sh
+export SRC_PATH=sources/jsonplaceholder-source
+export DST_PATH=destinations/airbyte-faros-destination
+
+$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog | \
+jq -c 'if .type == "RECORD" then .record.stream = "mytestsource__jsonplaceholder__\(.record.stream)" else . end' | \
+$DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog
 ```
 
-This will:
-- Read real data from JSONPlaceholder API
-- Convert it to Faros models
-- Show a summary of converted records
+This command:
+1. Reads data from the JSONPlaceholder API via the source
+2. Uses `jq` to prefix stream names with the origin and source (required by the destination to find the correct converter)
+3. Pipes the records to the destination which converts them to Faros models
+
+The destination runs in `dry_run` mode by default (configured in `test_files/config.json`), so it will show what would be written without actually sending data to Faros.
 
 ## Part 4: Docker Deployment
 
@@ -604,6 +648,39 @@ For this guide, we used:
 - `tms_User` - Represents a user
 - `tms_Task` - Represents a task/issue
 - `tms_TaskAssignment` - Links tasks to users
+
+### Field Mapping Reference
+
+Here's how JSONPlaceholder data maps to Faros models in this example:
+
+**User Mapping (JSONPlaceholder → tms_User):**
+| Source Field | Destination Field | Notes |
+|--------------|-------------------|-------|
+| `id` | `uid` | Converted to string |
+| `name` | `name` | Direct mapping |
+| `email` | `emailAddress` | Direct mapping |
+| - | `source` | Fixed value: `"JSONPlaceholder"` |
+| - | `inactive` | Fixed value: `false` |
+
+**Todo Mapping (JSONPlaceholder → tms_Task):**
+| Source Field | Destination Field | Notes |
+|--------------|-------------------|-------|
+| `id` | `uid` | Converted to string |
+| `title` | `name` | Direct mapping |
+| `title` | `description` | Prefixed with `"Todo item: "` |
+| - | `type.category` | Fixed value: `"Task"` |
+| - | `type.detail` | Fixed value: `"todo"` |
+| `completed` | `status.category` | `false` → `"Todo"`, `true` → `"Done"` |
+| `completed` | `status.detail` | `false` → `"pending"`, `true` → `"completed"` |
+| - | `source` | Fixed value: `"JSONPlaceholder"` |
+
+**Task Assignment (JSONPlaceholder → tms_TaskAssignment):**
+| Source Field | Destination Field | Notes |
+|--------------|-------------------|-------|
+| `id` | `task.uid` | Reference to the task |
+| `userId` | `assignee.uid` | Reference to the user |
+| - | `task.source` | Fixed value: `"JSONPlaceholder"` |
+| - | `assignee.source` | Fixed value: `"JSONPlaceholder"` |
 
 ## Common Issues and Solutions
 
