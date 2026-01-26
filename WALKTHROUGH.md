@@ -785,7 +785,7 @@ Now that you understand how the connector works:
 
 ## Summary
 
-Congratulations! You've built a complete Airbyte connector that:
+This guide covered a complete Airbyte connector that:
 - Reads data from an external API
 - Supports incremental syncing
 - Converts data to the Faros canonical schema
