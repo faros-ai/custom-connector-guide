@@ -3,8 +3,8 @@ import {
   DestinationModel,
   DestinationRecord,
   StreamContext,
-} from "airbyte-faros-destination";
-import { AirbyteRecord } from "faros-airbyte-cdk";
+} from 'airbyte-faros-destination';
+import {AirbyteRecord} from 'faros-airbyte-cdk';
 
 interface JSONPlaceholderTodo {
   userId: number;
@@ -14,21 +14,21 @@ interface JSONPlaceholderTodo {
 }
 
 interface TmsTaskType {
-  category: "Task" | "Bug" | "Story" | "Custom";
+  category: 'Task' | 'Bug' | 'Story' | 'Custom';
   detail: string;
 }
 
 interface TmsTaskStatus {
-  category: "Todo" | "InProgress" | "Done" | "Custom";
+  category: 'Todo' | 'InProgress' | 'Done' | 'Custom';
   detail: string;
 }
 
 export class Todos extends Converter {
-  source = "JSONPlaceholder";
+  source = 'JSONPlaceholder';
 
   readonly destinationModels: ReadonlyArray<DestinationModel> = [
-    "tms_Task",
-    "tms_TaskAssignment",
+    'tms_Task',
+    'tms_TaskAssignment',
   ];
 
   id(record: AirbyteRecord): string {
@@ -37,24 +37,24 @@ export class Todos extends Converter {
 
   async convert(
     record: AirbyteRecord,
-    ctx?: StreamContext,
+    ctx?: StreamContext
   ): Promise<ReadonlyArray<DestinationRecord>> {
     const todo = record.record.data as JSONPlaceholderTodo;
     const results: DestinationRecord[] = [];
 
     // Convert todo to tms_Task
     const taskType: TmsTaskType = {
-      category: "Task",
-      detail: "todo",
+      category: 'Task',
+      detail: 'todo',
     };
 
     const taskStatus: TmsTaskStatus = {
-      category: todo.completed ? "Done" : "Todo",
-      detail: todo.completed ? "completed" : "pending",
+      category: todo.completed ? 'Done' : 'Todo',
+      detail: todo.completed ? 'completed' : 'pending',
     };
 
     results.push({
-      model: "tms_Task",
+      model: 'tms_Task',
       record: {
         uid: String(todo.id),
         name: todo.title,
@@ -62,16 +62,13 @@ export class Todos extends Converter {
         type: taskType,
         status: taskStatus,
         source: this.source,
-        createdAt: new Date().toISOString(), // JSONPlaceholder doesn't provide dates
-        updatedAt: new Date().toISOString(),
-        resolvedAt: todo.completed ? new Date().toISOString() : null,
       },
     });
 
     // Create task assignment to link the task to the user
     if (todo.userId) {
       results.push({
-        model: "tms_TaskAssignment",
+        model: 'tms_TaskAssignment',
         record: {
           task: {
             uid: String(todo.id),
