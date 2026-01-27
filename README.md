@@ -5,19 +5,45 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 ## Contents
 
 - **WALKTHROUGH.md** - Comprehensive step-by-step guide
-- **jsonplaceholder-source/** - Example source connector implementation
-- **destinations/airbyte-faros-destination/** - Minimal Faros destination with JSONPlaceholder converters
-- **setup.sh** - Script to set up the development environment
-- **test-source.sh** - Script to test the JSONPlaceholder source
-- **test-converter.sh** - Script to test the Faros destination converter
-- **run-e2e.sh** - Script to run end-to-end tests
+- **sources/jsonplaceholder-source/** - JSONPlaceholder source connector
+- **destinations/airbyte-faros-destination/** - Faros destination with JSONPlaceholder converters
+
+## Requirements
+
+- Node.js 22+
+- npm
+- jq (for stream prefixing in end-to-end tests)
+- Docker (optional, for containerization)
 
 ## Quick Start
 
 1. Read the [WALKTHROUGH.md](./WALKTHROUGH.md) guide
-2. Run `./setup.sh` to set up the environment
-3. Follow the guide to understand how the connector works
-4. Use the test scripts to verify everything is working
+2. Install dependencies and build (required before running any commands):
+   ```bash
+   npm install
+   npm run build
+   ```
+3. Test the source:
+   ```bash
+   export SRC_PATH=sources/jsonplaceholder-source
+   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json
+   ```
+4. Test the destination:
+   ```bash
+   export DST_PATH=destinations/airbyte-faros-destination
+   cat << 'EOF' | $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
+   {"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__users","data":{"id":1,"name":"Test User","email":"test@example.com"},"emitted_at":1234567890}}
+   {"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__todos","data":{"userId":1,"id":1,"title":"Test Todo","completed":false},"emitted_at":1234567891}}
+   EOF
+   ```
+5. Test source + destination end-to-end:
+   ```bash
+   export SRC_PATH=sources/jsonplaceholder-source
+   export DST_PATH=destinations/airbyte-faros-destination
+   $SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json | \
+   jq -c 'if .type == "RECORD" then .record.stream = "mytestsource__jsonplaceholder__\(.record.stream)" else . end' | \
+   $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
+   ```
 
 ## What You'll Learn
 
@@ -30,37 +56,29 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 
 ## Project Structure
 
-This guide contains a self-contained example with all necessary components:
-
 ```
-airbyte-custom-connector-guide/
-├── jsonplaceholder-source/               # Example source connector
-│   ├── src/                             # Source code
-│   │   ├── index.ts                     # Main source class
-│   │   └── streams/                     # Stream implementations
-│   │       ├── users.ts
-│   │       └── todos.ts
-│   └── resources/                       # Configuration and schemas
-│       ├── spec.json
-│       └── schemas/
-│           ├── users.json
-│           └── todos.json
+custom-connector-guide/
+├── sources/
+│   └── jsonplaceholder-source/
+│       ├── src/                         # Source code
+│       ├── resources/                   # Spec and schemas
+│       ├── test/                        # Jest tests
+│       ├── test_files/                  # Manual test configs
+│       └── bin/main                     # Entry point
 │
-├── destinations/                        # Minimal Faros destination
+├── destinations/
 │   └── airbyte-faros-destination/
-│       ├── src/
-│       │   ├── index.ts                 # Simplified destination
-│       │   └── converters/
-│       │       ├── converter.ts         # Base converter class
-│       │       └── jsonplaceholder/     # JSONPlaceholder converters
-│       │           ├── users.ts         # Users converter
-│       │           └── todos.ts         # Todos converter
-│       ├── bin/main                     # Executable entry point
-│       └── package.json
+│       ├── src/converters/jsonplaceholder/  # Converters
+│       ├── test/                        # Jest tests
+│       ├── test_files/                  # Manual test configs
+│       └── bin/main                     # Entry point
 │
+├── docker/                              # Docker entrypoint
+├── Dockerfile                           # Multi-stage build
+├── turbo.json                           # Turborepo config
+├── package.json                         # Root package
 ├── WALKTHROUGH.md                       # Detailed guide
-├── README.md                           # This file
-└── *.sh                                # Helper scripts
+└── README.md
 ```
 
 ## Key Concepts
@@ -69,13 +87,6 @@ airbyte-custom-connector-guide/
 - **Streams**: Different types of data from the source (users, todos)
 - **Converters**: Transform source data to Faros canonical models
 - **Faros Schema**: Standardized data models (tms_User, tms_Task, etc.)
-
-## Requirements
-
-- Node.js 22+
-- npm
-- Basic TypeScript knowledge
-- Docker (optional, for containerization)
 
 ## Note
 

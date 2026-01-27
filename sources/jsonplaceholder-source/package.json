@@ -1,7 +1,19 @@
 {
-  "name": "airbyte-faros-destination",
+  "name": "jsonplaceholder-source",
   "version": "0.0.1",
-  "description": "Custom Faros Destination for JSONPlaceholder Example",
+  "description": "JSONPlaceholder Airbyte source",
+  "keywords": [
+    "airbyte",
+    "source",
+    "faros"
+  ],
+  "homepage": "https://www.faros.ai",
+  "author": "Faros AI, Inc.",
+  "license": "Apache-2.0",
+  "files": [
+    "lib/",
+    "resources/"
+  ],
   "main": "./lib",
   "scripts": {
     "build": "tsc -p src",
@@ -12,11 +24,12 @@
     "test-cov": "jest --coverage --verbose --color"
   },
   "dependencies": {
-    "airbyte-faros-destination": "^0.21.1"
+    "axios": "^1.12.2",
+    "faros-airbyte-cdk": "^0.21.1",
+    "verror": "^1.10.1"
   },
   "devDependencies": {
-    "faros-airbyte-testing-tools": "^0.21.1",
-    "mockttp": "^3.9.2"
+    "faros-airbyte-testing-tools": "^0.21.1"
   },
   "jest": {
     "coverageDirectory": "out/coverage",
@@ -26,21 +39,14 @@
     ],
     "preset": "ts-jest",
     "testEnvironment": "node",
-    "testPathIgnorePatterns": [
-      "out/"
-    ],
-    "testTimeout": 30000,
+    "testTimeout": 10000,
     "transform": {
-      "\\.tsx?$": [
+      "\\.ts?$": [
         "ts-jest",
         {
           "tsconfig": "test/tsconfig.json"
         }
       ]
-    },
-    "snapshotFormat": {
-      "printBasicPrototype": true,
-      "escapeString": true
     }
   }
 }

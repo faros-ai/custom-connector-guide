@@ -1,37 +1,17 @@
-# Dependencies
-node_modules/
-
-# TypeScript build outputs
 lib/
-*.js
-*.js.map
-*.d.ts
-*.d.ts.map
-*.tsbuildinfo
-
-# IDE
+out/
+secrets/
+node_modules/
+acceptance_tests_logs/
 .vscode/
 .idea/
+.turbo/
+.nx/
+.envrc
 
-# OS
 .DS_Store
-Thumbs.db
+acceptance-test-*.log
+*.code-workspace
 
-# Logs
-*.log
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
-
-# Environment variables
-.env
-.env.local
-.env.*.local
-
-# Test coverage
-coverage/
-.nyc_output/
-
-# Temporary files
-*.tmp
-*.temp
+destinations/**/package-lock.json
+sources/**/package-lock.json

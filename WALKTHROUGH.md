@@ -10,8 +10,8 @@ This guide will walk you through building a complete Airbyte connector using the
 
 - [Overview](#overview)
 - [Prerequisites](#prerequisites)
-- [Part 1: Creating the Source](#part-1-creating-the-source)
-- [Part 2: Creating the Converter](#part-2-creating-the-converter)
+- [Part 1: Understanding the Source](#part-1-understanding-the-source)
+- [Part 2: Understanding the Converters](#part-2-understanding-the-converters)
 - [Part 3: Testing Everything](#part-3-testing-everything)
 - [Part 4: Docker Deployment](#part-4-docker-deployment)
 - [Key Concepts Explained](#key-concepts-explained)
@@ -36,57 +36,48 @@ JSONPlaceholder API → Airbyte Source → Airbyte Platform → Faros Destinatio
 
 ### Project Structure
 
-This guide includes a self-contained example with all necessary components:
+This guide includes a complete working example:
 
 ```
-airbyte-custom-connector-guide/
-├── jsonplaceholder-source/               # Example source connector
-├── destinations/                        # Self-contained Faros destination
-│   └── airbyte-faros-destination/       # Minimal destination implementation
-│       └── src/converters/
-│           └── jsonplaceholder/         # JSONPlaceholder converters
-│               ├── users.ts
-│               └── todos.ts
-├── setup.sh                             # Setup script
-├── test-source.sh                       # Source testing script
-├── test-converter.sh                    # Converter testing script
-└── run-e2e.sh                          # End-to-end test script
+custom-connector-guide/
+├── sources/
+│   └── jsonplaceholder-source/
+│       ├── src/                         # Source code
+│       ├── resources/                   # Spec and schemas
+│       ├── test/                        # Jest tests
+│       ├── test_files/                  # Manual test configs
+│       └── bin/main                     # Entry point
+│
+├── destinations/
+│   └── airbyte-faros-destination/
+│       ├── src/converters/jsonplaceholder/  # Converters
+│       ├── test/                        # Jest tests
+│       ├── test_files/                  # Manual test configs
+│       └── bin/main                     # Entry point
+│
+├── docker/                              # Docker entrypoint
+├── Dockerfile                           # Multi-stage build
+├── turbo.json                           # Turborepo config
+├── package.json                         # Root package
+├── WALKTHROUGH.md                       # This guide
+└── README.md
 ```
 
 ## Prerequisites
 
 - Node.js 22 or later
 - npm
-- Docker (for containerization)
+- jq (for stream prefixing in end-to-end tests)
+- Docker (optional, for containerization)
 - Basic knowledge of TypeScript
-- Familiarity with REST APIs
 
-## Part 1: Creating the Source
+## Part 1: Understanding the Source
 
-### Step 1: Set Up the Project Structure
+This section explains the structure of the JSONPlaceholder source connector located in `sources/jsonplaceholder-source/`. Use this as a reference when building your own source.
 
-```bash
-# Copy the example source as a template
-cp -r sources/example-source airbyte-custom-connector-guide/jsonplaceholder-source
-cd airbyte-custom-connector-guide/jsonplaceholder-source
-```
+### The Configuration Spec
 
-### Step 2: Update package.json
-
-Edit `package.json` to rename the package:
-
-```json
-{
-  "name": "jsonplaceholder-source",
-  "version": "0.0.1",
-  "description": "JSONPlaceholder Airbyte source",
-  ...
-}
-```
-
-### Step 3: Define the Configuration Spec
-
-Create `resources/spec.json` to define what configuration the source needs:
+The `resources/spec.json` file defines what configuration the source needs. This is displayed to users when setting up the connector:
 
 ```json
 {
@@ -109,11 +100,13 @@ Create `resources/spec.json` to define what configuration the source needs:
 }
 ```
 
-### Step 4: Create Data Schemas
+The `connectionSpecification` uses JSON Schema to define each configuration field with its type, description, and default value.
 
-Define the structure of the data we'll be reading.
+### Data Schemas
 
-Create `resources/schemas/users.json`:
+The `resources/schemas/` directory contains JSON Schema definitions for each stream.
+
+`resources/schemas/users.json`:
 
 ```json
 {
@@ -154,7 +147,7 @@ Create `resources/schemas/users.json`:
 }
 ```
 
-Create `resources/schemas/todos.json`:
+`resources/schemas/todos.json`:
 
 ```json
 {
@@ -169,9 +162,11 @@ Create `resources/schemas/todos.json`:
 }
 ```
 
-### Step 5: Update the Configuration Interface
+These schemas describe the structure of records emitted by each stream. Airbyte uses them to validate data and generate destination schemas.
 
-Edit `src/config.ts`:
+### Configuration Interface
+
+The `src/config.ts` file defines the TypeScript interface for the source configuration:
 
 ```typescript
 import {AirbyteConfig} from 'faros-airbyte-cdk';
@@ -181,9 +176,11 @@ export interface SourceConfig extends AirbyteConfig {
 }
 ```
 
-### Step 6: Implement the Main Source Class
+This interface mirrors the fields in `spec.json`, providing type safety when accessing configuration values in your code.
 
-Edit `src/index.ts`:
+### Main Source Class
+
+The `src/index.ts` file contains the main source class that ties everything together:
 
 ```typescript
 import {Command} from 'commander';
@@ -241,9 +238,16 @@ export class JSONPlaceholderSource extends AirbyteSourceBase<SourceConfig> {
 }
 ```
 
-### Step 7: Implement the Streams
+Key methods in the source class:
+- `spec()` returns the connector specification from `spec.json`
+- `checkConnection()` validates the API is reachable before syncing
+- `streams()` returns the list of available data streams
 
-Create `src/streams/users.ts`:
+### Stream Implementations
+
+Each stream is a class that defines how to read data from the API.
+
+`src/streams/users.ts`:
 
 ```typescript
 import {
@@ -320,9 +324,16 @@ export class Users extends AirbyteStreamBase {
 }
 ```
 
-Create a similar `src/streams/todos.ts` file with the same pattern but for todos.
+Key stream methods:
+- `getJsonSchema()` returns the schema for this stream's records
+- `primaryKey` uniquely identifies each record
+- `cursorField` determines ordering for incremental syncs
+- `readRecords()` is the main method that fetches and yields data from the API
+- `getUpdatedState()` powers incremental syncs by tracking the last processed record; this state is persisted between runs so subsequent syncs only fetch new data
 
-### Step 8: Build and Test the Source
+The `src/streams/todos.ts` file follows the same pattern for todos.
+
+### Building and Testing the Source
 
 ```bash
 # Install dependencies
@@ -331,49 +342,41 @@ npm install
 # Build the source
 npm run build
 
-# Create test configuration
-mkdir -p secrets
-echo '{"api_url": "https://jsonplaceholder.typicode.com"}' > secrets/config.json
-
-# Test the source
+# Test the source (using the provided test_files)
 bin/main spec
-bin/main check --config secrets/config.json
-bin/main discover --config secrets/config.json
+bin/main check --config test_files/config.json
+bin/main discover --config test_files/config.json
 ```
 
-## Part 2: Creating the Converter
+## Part 2: Understanding the Converters
 
-### Step 1: Understanding the Converter Location
+This section explains the Faros destination converters located in `destinations/airbyte-faros-destination/src/converters/jsonplaceholder/`.
 
-In this guide, we have a self-contained example of the Faros destination with just the JSONPlaceholder converters. The converters are located at:
+Converters transform source data into Faros canonical models. Each converter handles one stream type.
 
-```
-destinations/airbyte-faros-destination/src/converters/jsonplaceholder/
-```
+### Users Converter
 
-Note: In a real-world scenario, you would add converters to the main Faros destination repository following the same pattern as other converters like `asana/`, `azure-workitems/`, etc.
-
-### Step 2: Implement the Converters
-
-Create `destinations/airbyte-faros-destination/src/converters/jsonplaceholder/users.ts`:
+`src/converters/jsonplaceholder/users.ts`:
 
 ```typescript
+import {
+  Converter,
+  DestinationModel,
+  DestinationRecord,
+  StreamContext,
+} from 'airbyte-faros-destination';
 import {AirbyteRecord} from 'faros-airbyte-cdk';
-
-import {DestinationModel, DestinationRecord, StreamContext} from '../converter';
-import {Converter} from '../converter';
 
 interface JSONPlaceholderUser {
   id: number;
   name: string;
   username: string;
   email: string;
-  // ... other fields
 }
 
 export class Users extends Converter {
   source = 'JSONPlaceholder';
-  
+
   readonly destinationModels: ReadonlyArray<DestinationModel> = ['tms_User'];
 
   id(record: AirbyteRecord): string {
@@ -385,7 +388,7 @@ export class Users extends Converter {
     ctx?: StreamContext
   ): Promise<ReadonlyArray<DestinationRecord>> {
     const user = record.record.data as JSONPlaceholderUser;
-    
+
     return [
       {
         model: 'tms_User',
@@ -402,13 +405,24 @@ export class Users extends Converter {
 }
 ```
 
-Create `destinations/airbyte-faros-destination/src/converters/jsonplaceholder/todos.ts`:
+Key converter properties and methods:
+- `source` identifies where the data originated (used in foreign key references)
+- `destinationModels` declares which Faros models this converter writes to
+- `id()` returns a unique identifier for each record (used for deduplication)
+- `convert()` transforms the source record into one or more Faros destination records
+
+### Todos Converter
+
+`src/converters/jsonplaceholder/todos.ts`:
 
 ```typescript
+import {
+  Converter,
+  DestinationModel,
+  DestinationRecord,
+  StreamContext,
+} from 'airbyte-faros-destination';
 import {AirbyteRecord} from 'faros-airbyte-cdk';
-
-import {DestinationModel, DestinationRecord, StreamContext} from '../converter';
-import {Converter} from '../converter';
 
 interface JSONPlaceholderTodo {
   userId: number;
@@ -419,7 +433,7 @@ interface JSONPlaceholderTodo {
 
 export class Todos extends Converter {
   source = 'JSONPlaceholder';
-  
+
   readonly destinationModels: ReadonlyArray<DestinationModel> = [
     'tms_Task',
     'tms_TaskAssignment',
@@ -452,9 +466,6 @@ export class Todos extends Converter {
           detail: todo.completed ? 'completed' : 'pending',
         },
         source: this.source,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        resolvedAt: todo.completed ? new Date().toISOString() : null,
       },
     });
     
@@ -474,99 +485,227 @@ export class Todos extends Converter {
         },
       });
     }
-    
+
     return results;
   }
 }
 ```
 
-### Step 3: How Converters Are Discovered
+This converter demonstrates creating multiple records from a single source record. The `tms_TaskAssignment` model creates a relationship between a task and a user by referencing them via their `uid` and `source` fields.
 
-The converters are automatically discovered by the Faros destination based on the stream name pattern. No manual registration is needed. The naming convention is:
+### Converter Discovery
+
+Converters are automatically discovered by the Faros destination based on the stream name pattern. No manual registration is needed. The naming convention is:
 
 - Stream name: `<origin>__<source>__<stream>`
-- Example: `jsonplaceholder__JSONPlaceholder__users`
+- Example: `mytestsource__jsonplaceholder__users`
 
-The destination will automatically find and use the `Users` class in the `jsonplaceholder` directory.
+The destination parses the stream name and finds the matching converter class (`Users`) in the `jsonplaceholder` directory.
+
+### Type Validation with Canonical Models
+
+The `airbyte-faros-destination` package has `@faros-ai/canonical-models` as an optional dependency. If you have access to this package, it will be installed automatically and provide type validation for the destination models written by converters. This helps catch schema mismatches during development.
 
 ## Part 3: Testing Everything
 
-### Using the Helper Scripts
+### Building the Project
 
-We've provided several helper scripts to make testing easier:
-
-1. **setup.sh** - Sets up the entire development environment
-2. **test-source.sh** - Tests the JSONPlaceholder source
-3. **test-converter.sh** - Tests the Faros destination converter
-4. **run-e2e.sh** - Runs an end-to-end test
-
-### Running the Setup
+From the root of the project, install dependencies and build:
 
 ```bash
-cd airbyte-custom-connector-guide
-./setup.sh
+npm install
+npm run build
+```
+
+This uses Turborepo to build all packages in the correct order.
+
+**Note:** The `bin/main` commands run the compiled JavaScript in the `lib/` directory, so you must run `npm run build` before testing. If you make changes to the source code, rebuild before testing again.
+
+### Running Automated Tests
+
+Both the source and destination have automated tests using Jest. Run all tests from the root:
+
+```bash
+npm test
+```
+
+Or run tests for a specific package:
+
+```bash
+# Source tests
+npm test --workspace=sources/jsonplaceholder-source
+
+# Destination converter tests (requires build first)
+npm run build --workspace=destinations/airbyte-faros-destination
+npm test --workspace=destinations/airbyte-faros-destination
+```
+
+The destination tests use `faros-airbyte-testing-tools` for snapshot testing of converter output. If you modify a converter, update snapshots with:
+
+```bash
+npm test --workspace=destinations/airbyte-faros-destination -- -u
 ```
 
 ### Testing the Source
 
-```bash
-./test-source.sh
-```
-
-This will:
-- Test the spec command
-- Check the connection
-- Discover available streams
-- Read some sample data
-
-### Testing the Converter
+Test individual source commands:
 
 ```bash
-./test-converter.sh
+export SRC_PATH=sources/jsonplaceholder-source
+
+# View the connector spec
+$SRC_PATH/bin/main spec
+
+# Check connection to the API
+$SRC_PATH/bin/main check --config $SRC_PATH/test_files/config.json
+
+# Discover available streams
+$SRC_PATH/bin/main discover --config $SRC_PATH/test_files/config.json
+
+# Read data from all streams
+$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json
 ```
 
-This will:
-- Create sample JSONPlaceholder records
-- Run them through the converter
-- Show how they map to Faros models
+### Testing the Destination Converter
+
+To test the converter in isolation, you can pipe sample records through it:
+
+```bash
+export DST_PATH=destinations/airbyte-faros-destination
+
+# Create sample test records
+cat << 'EOF' | $DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
+{"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__users","data":{"id":1,"name":"Test User","email":"test@example.com"},"emitted_at":1234567890}}
+{"type":"RECORD","record":{"stream":"mytestsource__jsonplaceholder__todos","data":{"userId":1,"id":1,"title":"Test Todo","completed":false},"emitted_at":1234567891}}
+EOF
+```
+
+Note the stream naming convention: `origin__source__stream` (e.g., `mytestsource__jsonplaceholder__users`).
 
 ### End-to-End Test
 
+Run a full pipeline from source to destination:
+
 ```bash
-./run-e2e.sh
+export SRC_PATH=sources/jsonplaceholder-source
+export DST_PATH=destinations/airbyte-faros-destination
+
+$SRC_PATH/bin/main read --config $SRC_PATH/test_files/config.json --catalog $SRC_PATH/test_files/catalog.json | \
+jq -c 'if .type == "RECORD" then .record.stream = "mytestsource__jsonplaceholder__\(.record.stream)" else . end' | \
+$DST_PATH/bin/main write --config $DST_PATH/test_files/config.json --catalog $DST_PATH/test_files/catalog.json
 ```
 
-This will:
-- Read real data from JSONPlaceholder API
-- Convert it to Faros models
-- Show a summary of converted records
+This command:
+1. Reads data from the JSONPlaceholder API via the source
+2. Uses `jq` to prefix stream names with the origin and source (required by the destination to find the correct converter)
+3. Pipes the records to the destination which converts them to Faros models
+
+The destination runs in `dry_run` mode by default (configured in `test_files/config.json`), so it will show what would be written without actually sending data to Faros.
 
 ## Part 4: Docker Deployment
 
 ### Building Docker Images
 
-For the source:
+Build the source and destination images:
 
 ```bash
-# From the root of the main repository
-docker build . --build-arg path=airbyte-custom-connector-guide/jsonplaceholder-source --build-arg version=0.0.1 -t jsonplaceholder-source
-```
+# Build source connector
+docker build . --build-arg path=sources/jsonplaceholder-source --build-arg version=0.0.1 -t test/airbyte-jsonplaceholder-source
 
-For the destination (from within the guide directory):
-
-```bash
-docker build . --build-arg path=destinations/airbyte-faros-destination --build-arg version=0.0.1 -t airbyte-faros-destination
+# Build destination connector
+docker build . --build-arg path=destinations/airbyte-faros-destination --build-arg version=0.0.1 -t test/airbyte-faros-destination
 ```
 
 ### Running with Docker
 
-```bash
-# Test the source
-docker run --rm jsonplaceholder-source spec
-docker run --rm -v $(pwd)/secrets:/secrets jsonplaceholder-source check --config /secrets/config.json
+You can test the images directly:
 
-# Read data
-docker run --rm -v $(pwd)/secrets:/secrets -v $(pwd)/test_files:/test_files jsonplaceholder-source read --config /secrets/config.json --catalog /test_files/catalog.json
+```bash
+# Test the source spec
+docker run --rm test/airbyte-jsonplaceholder-source spec
+
+# Test the destination spec
+docker run --rm test/airbyte-faros-destination spec
+```
+
+### Using airbyte-local-cli
+
+The easiest way to run a full sync is with [airbyte-local-cli](https://github.com/faros-ai/airbyte-local-cli). Download the binary for your platform from the [releases page](https://github.com/faros-ai/airbyte-local-cli/releases).
+
+The CLI uses config files to specify source and destination settings.
+
+**Source only (`config-src-only.json`):**
+```json
+{
+  "src": {
+    "image": "test/airbyte-jsonplaceholder-source",
+    "config": {}
+  }
+}
+```
+
+```bash
+./airbyte-local \
+  -c config-src-only.json \
+  --src-only \
+  --no-src-pull
+```
+
+**Source + destination dry run (`config-dry-run.json`):**
+```json
+{
+  "src": {
+    "image": "test/airbyte-jsonplaceholder-source",
+    "config": {}
+  },
+  "dst": {
+    "image": "test/airbyte-faros-destination",
+    "config": {
+      "dry_run": true
+    }
+  }
+}
+```
+
+```bash
+./airbyte-local \
+  -c config-dry-run.json \
+  --no-src-pull \
+  --no-dst-pull \
+  --dst-stream-prefix "mytestsource__jsonplaceholder__"
+```
+
+The `--no-src-pull` and `--no-dst-pull` flags use local Docker images instead of pulling from registry. Running a sync writes a `state.json` file to enable incremental syncs on subsequent runs.
+
+### Writing to Faros
+
+To write data to Faros, create a config with your API credentials (`config-faros.json`):
+
+```json
+{
+  "src": {
+    "image": "test/airbyte-jsonplaceholder-source",
+    "config": {}
+  },
+  "dst": {
+    "image": "test/airbyte-faros-destination",
+    "config": {
+      "edition_configs": {
+        "api_key": "YOUR_FAROS_API_KEY",
+        "graph": "default"
+      }
+    }
+  }
+}
+```
+
+Then run:
+```bash
+./airbyte-local \
+  -c config-faros.json \
+  --no-src-pull \
+  --no-dst-pull \
+  --dst-stream-prefix "mytestsource__jsonplaceholder__"
 ```
 
 ## Key Concepts Explained
@@ -604,6 +743,39 @@ For this guide, we used:
 - `tms_Task` - Represents a task/issue
 - `tms_TaskAssignment` - Links tasks to users
 
+### Field Mapping Reference
+
+Here's how JSONPlaceholder data maps to Faros models in this example:
+
+**User Mapping (JSONPlaceholder → tms_User):**
+| Source Field | Destination Field | Notes |
+|--------------|-------------------|-------|
+| `id` | `uid` | Converted to string |
+| `name` | `name` | Direct mapping |
+| `email` | `emailAddress` | Direct mapping |
+| - | `source` | Fixed value: `"JSONPlaceholder"` |
+| - | `inactive` | Fixed value: `false` |
+
+**Todo Mapping (JSONPlaceholder → tms_Task):**
+| Source Field | Destination Field | Notes |
+|--------------|-------------------|-------|
+| `id` | `uid` | Converted to string |
+| `title` | `name` | Direct mapping |
+| `title` | `description` | Prefixed with `"Todo item: "` |
+| - | `type.category` | Fixed value: `"Task"` |
+| - | `type.detail` | Fixed value: `"todo"` |
+| `completed` | `status.category` | `false` → `"Todo"`, `true` → `"Done"` |
+| `completed` | `status.detail` | `false` → `"pending"`, `true` → `"completed"` |
+| - | `source` | Fixed value: `"JSONPlaceholder"` |
+
+**Task Assignment (JSONPlaceholder → tms_TaskAssignment):**
+| Source Field | Destination Field | Notes |
+|--------------|-------------------|-------|
+| `id` | `task.uid` | Reference to the task |
+| `userId` | `assignee.uid` | Reference to the user |
+| - | `task.source` | Fixed value: `"JSONPlaceholder"` |
+| - | `assignee.source` | Fixed value: `"JSONPlaceholder"` |
+
 ## Common Issues and Solutions
 
 ### Issue: Connection Failed
@@ -616,7 +788,7 @@ For this guide, we used:
 
 ### Issue: Converter Not Found
 
-**Solution**: Ensure the stream name follows the pattern: `<origin>__<source>__<stream>`. For example: `jsonplaceholder__JSONPlaceholder__users`
+**Solution**: Ensure the stream name follows the pattern: `<origin>__<source>__<stream>`. For example: `mytestsource__jsonplaceholder__users`
 
 ### Issue: Type Errors
 
@@ -624,13 +796,13 @@ For this guide, we used:
 
 ## Next Steps
 
-Now that you have a working connector:
+Now that you understand how the connector works:
 
 1. **Add More Streams**: JSONPlaceholder has posts, comments, albums, and photos
 2. **Enhance Mappings**: Add more fields or create relationships between models
-3. **Add Tests**: Write unit tests for your streams and converters
+3. **Extend Tests**: Add more test cases for edge cases and error handling
 4. **Production Setup**: Configure real Faros API credentials and remove dry_run mode
-5. **Deploy to Airbyte**: Add your connector to an Airbyte instance
+5. **Build Your Own**: Use this as a template for your own source and converters
 
 ## Additional Resources
 
@@ -639,7 +811,7 @@ Now that you have a working connector:
 
 ## Summary
 
-Congratulations! You've built a complete Airbyte connector that:
+This guide covered a complete Airbyte connector that:
 - Reads data from an external API
 - Supports incremental syncing
 - Converts data to the Faros canonical schema

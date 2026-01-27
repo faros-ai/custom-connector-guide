@@ -1,7 +1,10 @@
+import {
+  Converter,
+  DestinationModel,
+  DestinationRecord,
+  StreamContext,
+} from 'airbyte-faros-destination';
 import {AirbyteRecord} from 'faros-airbyte-cdk';
-
-import {DestinationModel, DestinationRecord, StreamContext} from '../converter';
-import {Converter} from '../converter';
 
 interface JSONPlaceholderTodo {
   userId: number;
@@ -22,7 +25,7 @@ interface TmsTaskStatus {
 
 export class Todos extends Converter {
   source = 'JSONPlaceholder';
-  
+
   readonly destinationModels: ReadonlyArray<DestinationModel> = [
     'tms_Task',
     'tms_TaskAssignment',
@@ -38,18 +41,18 @@ export class Todos extends Converter {
   ): Promise<ReadonlyArray<DestinationRecord>> {
     const todo = record.record.data as JSONPlaceholderTodo;
     const results: DestinationRecord[] = [];
-    
+
     // Convert todo to tms_Task
     const taskType: TmsTaskType = {
       category: 'Task',
       detail: 'todo',
     };
-    
+
     const taskStatus: TmsTaskStatus = {
       category: todo.completed ? 'Done' : 'Todo',
       detail: todo.completed ? 'completed' : 'pending',
     };
-    
+
     results.push({
       model: 'tms_Task',
       record: {
@@ -59,12 +62,9 @@ export class Todos extends Converter {
         type: taskType,
         status: taskStatus,
         source: this.source,
-        createdAt: new Date().toISOString(), // JSONPlaceholder doesn't provide dates
-        updatedAt: new Date().toISOString(),
-        resolvedAt: todo.completed ? new Date().toISOString() : null,
       },
     });
-    
+
     // Create task assignment to link the task to the user
     if (todo.userId) {
       results.push({
@@ -81,7 +81,7 @@ export class Todos extends Converter {
         },
       });
     }
-    
+
     return results;
   }
 }

@@ -1,0 +1,14 @@
+{
+  "streams": [
+    {
+      "stream": {
+        "name": "users"
+      }
+    },
+    {
+      "stream": {
+        "name": "todos"
+      }
+    }
+  ]
+}
