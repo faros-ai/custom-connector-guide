@@ -12,10 +12,10 @@
     "test-cov": "jest --coverage --verbose --color"
   },
   "dependencies": {
-    "airbyte-faros-destination": "^0.21.1"
+    "airbyte-faros-destination": "^0.21.44"
   },
   "devDependencies": {
-    "faros-airbyte-testing-tools": "^0.21.1",
+    "faros-airbyte-testing-tools": "^0.21.44",
     "mockttp": "^3.9.2"
   },
   "jest": {
