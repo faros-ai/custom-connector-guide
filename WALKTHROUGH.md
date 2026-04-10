@@ -65,7 +65,7 @@ custom-connector-guide/
 
 ## Prerequisites
 
-- Node.js 22 or later
+- Node.js 24 or later
 - npm
 - jq (for stream prefixing in end-to-end tests)
 - Docker (optional, for containerization)

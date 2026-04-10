@@ -10,7 +10,7 @@ This directory contains a complete, self-contained walkthrough guide for buildin
 
 ## Requirements
 
-- Node.js 22+
+- Node.js 24+
 - npm
 - jq (for stream prefixing in end-to-end tests)
 - Docker (optional, for containerization)

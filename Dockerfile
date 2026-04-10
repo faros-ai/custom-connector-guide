@@ -1,5 +1,5 @@
 # Stage 1: Build stage
-FROM node:22-alpine AS builder
+FROM node:24-alpine AS builder
 
 WORKDIR /home/node/airbyte
 
@@ -24,7 +24,7 @@ RUN apk -U upgrade && \
     rm -f turbo.json
 
 # Stage 2: Runtime stage
-FROM node:22-alpine
+FROM node:24-alpine
 
 WORKDIR /home/node/airbyte
 
